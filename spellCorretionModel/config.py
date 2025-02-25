@@ -10,6 +10,6 @@ class Config:
     batch_size = 16
 
     # Пути для сохранения и загрузки
-    model_path = '../locmodels/spell_correction_model.pth'
-    vectorizer_path = '../locmodels/vectorizer.pkl'
-    label_encoder_path = '../locmodels/label_encoder.pkl'
+    model_path = '../locmodels/spellCorrectionMdls/spell_correction_model.pth'
+    vectorizer_path = '../locmodels/spellCorrectionMdls/vectorizer.pkl'
+    label_encoder_path = '../locmodels/spellCorrectionMdls/label_encoder.pkl'
