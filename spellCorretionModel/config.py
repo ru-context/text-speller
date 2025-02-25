@@ -1,13 +1,13 @@
 class Config:
     # Гиперпараметры модели
     input_size = None
-    hidden_size = 128
+    hidden_size = 32
     output_size = None
 
     # Гиперпараметры обучения
     learning_rate = 0.001
-    num_epochs = 10
-    batch_size = 32
+    num_epochs = 2
+    batch_size = 8
 
     # Пути для сохранения и загрузки
     model_path = 'spell_correction_model.pth'
