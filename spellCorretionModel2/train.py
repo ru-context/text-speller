@@ -1,77 +1,83 @@
+import torch
+import joblib
 from models import SpellCorrectionModel
 from config import Config
-
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
+import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
-import pandas as pd
-import joblib
+from torch.utils.data import DataLoader, TensorDataset
 import logging
+import numpy as np
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
-data = pd.read_csv('../datasets/error_dataset.csv')
-X = data['Erroneous']
-y = data['Correct']
+def split_dataset(data, num_parts):
+    part_size = len(data) // num_parts
+    parts = []
+    for i in range(num_parts):
+        start = i * part_size
+        end = (i + 1) * part_size if i < num_parts - 1 else len(data)
+        parts.append(data[start:end])
+    return parts
 
-vectorizer = TfidfVectorizer(analyzer='char', ngram_range=(2, 3), max_features=5000)
-X_vec = vectorizer.fit_transform(X)
-label_encoder = LabelEncoder()
-y_encoded = label_encoder.fit_transform(y)
+def train_on_part(part_data, model, vectorizer, label_encoder, device):
+    X = part_data['Erroneous']
+    y = part_data['Correct']
 
-Config.input_size = X_vec.shape[1]
-Config.output_size = len(label_encoder.classes_)
-logging.info(f"input_size: {Config.input_size}")
-logging.info(f"output_size: {Config.output_size}")
+    X_vec = vectorizer.transform(X)
+    y_encoded = label_encoder.transform(y)
+    X_tensor = torch.tensor(X_vec.toarray(), dtype=torch.float32).to(device)
+    y_tensor = torch.tensor(y_encoded, dtype=torch.long).to(device)
 
-config = {
-    "input_size": X_vec.shape[1],
-    "output_size": len(label_encoder.classes_),
-    "hidden_size": Config.hidden_size,
-    "model_path": Config.model_path,
-    "vectorizer_path": Config.vectorizer_path,
-    "label_encoder_path": Config.label_encoder_path
-}
-joblib.dump(config, "config.pkl")
+    dataset = TensorDataset(X_tensor, y_tensor)
+    loader = DataLoader(dataset, batch_size=Config.batch_size, shuffle=True)
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=Config.learning_rate)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-logging.info(f"Используемое устройство: {device}")
-X_train, X_test, y_train, y_test = train_test_split(X_vec, y_encoded, test_size=0.2, random_state=42)
-X_train_tensor = torch.tensor(X_train.toarray(), dtype=torch.float32).to(device)
-y_train_tensor = torch.tensor(y_train, dtype=torch.long).to(device)
-X_test_tensor = torch.tensor(X_test.toarray(), dtype=torch.float32).to(device)
-y_test_tensor = torch.tensor(y_test, dtype=torch.long).to(device)
+    for epoch in range(Config.num_epochs):
+        running_loss = 0.0
+        for inputs, labels in tqdm(loader, desc=f"Эпоха {epoch + 1}/{Config.num_epochs}", unit="batch"):
+            inputs, labels = inputs.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
 
-train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
-train_loader = DataLoader(train_dataset, batch_size=Config.batch_size, shuffle=True)
-test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
-test_loader = DataLoader(test_dataset, batch_size=Config.batch_size, shuffle=False)
-model = SpellCorrectionModel(Config.input_size, Config.hidden_size, Config.output_size).to(device)
+        epoch_loss = running_loss / len(loader)
+        logging.info(f"Эпоха [{epoch + 1}/{Config.num_epochs}], Loss: {epoch_loss:.4f}")
 
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=Config.learning_rate)
+def main():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logging.info(f"Используемое устройство: {device}")
+    config = joblib.load("config.pkl")
+    data = pd.read_csv('../datasets/error_dataset.csv')
 
-logging.info("Начало обучения")
-for epoch in range(Config.num_epochs):
-    model.train()
-    running_loss = 0.0
-    for inputs, labels in train_loader:
-        inputs, labels = inputs.to(device), labels.to(device)
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        running_loss += loss.item()
+    num_parts = 5
+    parts = split_dataset(data, num_parts)
 
-    epoch_loss = running_loss / len(train_loader)
-    logging.info(f"Эпоха [{epoch + 1}/{Config.num_epochs}], Loss: {epoch_loss:.4f}")
+    vectorizer = TfidfVectorizer(analyzer='char', ngram_range=(2, 3), max_features=5000)
+    vectorizer.fit(data['Erroneous'])
+    label_encoder = LabelEncoder()
+    label_encoder.fit(data['Correct'])
+    model = SpellCorrectionModel(
+        input_size=vectorizer.transform(["dummy"]).shape[1],
+        hidden_size=Config.hidden_size,
+        output_size=len(label_encoder.classes_)
+    ).to(device)
 
-# Сохранение модели и вспомогательных объектов
-torch.save(model.state_dict(), Config.model_path)
-joblib.dump(vectorizer, Config.vectorizer_path)
-joblib.dump(label_encoder, Config.label_encoder_path)
-logging.info("Обучение завершено и модель сохранена!")
+    # Обучение по частям
+    for part_num, part_data in enumerate(parts, 1):
+        logging.info(f"Обучение на части {part_num}...")
+        train_on_part(part_data, model, vectorizer, label_encoder, device)
+        torch.save(model.state_dict(), config["model_path"])
+        logging.info(f"Модель сохранена после части {part_num}.")
+
+    joblib.dump(vectorizer, config["vectorizer_path"])
+    joblib.dump(label_encoder, config["label_encoder_path"])
+    logging.info("Обучение завершено и модель сохранена!")
+
+
+if __name__ == "__main__":
+    main()
