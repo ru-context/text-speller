@@ -1,13 +1,18 @@
 import torch
 import joblib
 from models import SpellCorrectionModel
-from config import Config
+config = joblib.load("config.pkl")
 
 def load_model():
-    vectorizer = joblib.load(Config.vectorizer_path)
-    label_encoder = joblib.load(Config.label_encoder_path)
-    model = SpellCorrectionModel(Config.input_size, Config.hidden_size, Config.output_size)
-    model.load_state_dict(torch.load(Config.model_path))
+    vectorizer = joblib.load(config["vectorizer_path"])
+    label_encoder = joblib.load(config["label_encoder_path"])
+    model = SpellCorrectionModel(
+        input_size=config["input_size"],
+        hidden_size=config["hidden_size"],
+        output_size=config["output_size"]
+    )
+
+    model.load_state_dict(torch.load(config["model_path"], map_location=torch.device('cpu')))
     model.eval()
     return model, vectorizer, label_encoder
 
@@ -20,15 +25,6 @@ def correct_spelling(word, model, vectorizer, label_encoder):
         corrected_word = label_encoder.inverse_transform([predicted.item()])[0]
     return corrected_word
 
-def correct_spelling_batch(words, model, vectorizer, label_encoder):
-    word_vecs = vectorizer.transform(words).toarray()
-    word_tensors = torch.tensor(word_vecs, dtype=torch.float32)
-    with torch.no_grad():
-        outputs = model(word_tensors)
-        _, predicted = torch.max(outputs, 1)
-        corrected_words = label_encoder.inverse_transform(predicted.numpy())
-    return corrected_words
-
 if __name__ == "__main__":
     model, vectorizer, label_encoder = load_model()
     print("Система исправления орфографических ошибок. Введите 'exit' для выхода.")
@@ -36,6 +32,5 @@ if __name__ == "__main__":
         word = input("Введите слово с ошибкой: ").strip()
         if word.lower() == 'exit':
             break
-
         corrected_word = correct_spelling(word, model, vectorizer, label_encoder)
         print(f"Исправленное слово: {corrected_word}")

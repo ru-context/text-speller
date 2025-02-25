@@ -9,9 +9,9 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
+from collections import defaultdict
 import pandas as pd
 import joblib
-from collections import defaultdict
 import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
@@ -30,6 +30,16 @@ Config.input_size = X_vec.shape[1]
 Config.output_size = len(label_encoder.classes_)
 logging.info(f"input_size: {Config.input_size}")
 logging.info(f"output_size: {Config.output_size}")
+config = {
+    "input_size": X_vec.shape[1],
+    "output_size": len(label_encoder.classes_),
+    "hidden_size": Config.hidden_size,
+    "model_path": Config.model_path,
+    "vectorizer_path": Config.vectorizer_path,
+    "label_encoder_path": Config.label_encoder_path
+}
+
+joblib.dump(config, "config.pkl")
 
 # Вычисление весов классов
 class_weights = defaultdict(float)
