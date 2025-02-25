@@ -37,10 +37,9 @@ config = {
 }
 joblib.dump(config, "config.pkl")
 
-X_train, X_test, y_train, y_test = train_test_split(X_vec, y_encoded, test_size=0.2, random_state=42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logging.info(f"Используемое устройство: {device}")
-
+X_train, X_test, y_train, y_test = train_test_split(X_vec, y_encoded, test_size=0.2, random_state=42)
 X_train_tensor = torch.tensor(X_train.toarray(), dtype=torch.float32).to(device)
 y_train_tensor = torch.tensor(y_train, dtype=torch.long).to(device)
 X_test_tensor = torch.tensor(X_test.toarray(), dtype=torch.float32).to(device)
@@ -50,8 +49,8 @@ train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
 train_loader = DataLoader(train_dataset, batch_size=Config.batch_size, shuffle=True)
 test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
 test_loader = DataLoader(test_dataset, batch_size=Config.batch_size, shuffle=False)
-
 model = SpellCorrectionModel(Config.input_size, Config.hidden_size, Config.output_size).to(device)
+
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=Config.learning_rate)
 
