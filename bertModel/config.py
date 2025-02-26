@@ -14,8 +14,8 @@ MODEL_PATHS = {
 }
 
 TRAINING_CONFIG = {
-    'batch_size': 16,
+    'batch_size': 256,
     'learning_rate': 5e-5,
-    'epochs': 3,
+    'epochs': 5,
     'max_length': 128
 }
