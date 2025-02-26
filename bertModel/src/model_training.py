@@ -1,7 +1,11 @@
+import os
+import sys
 import torch
-from transformers import BertForMaskedLM, AdamW
+from transformers import BertForMaskedLM, AdamW,  BertTokenizer
 from utils import load_data, create_dataloader, save_model
-from config import MODEL_PATHS, TRAINING_CONFIG
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import MODEL_PATHS, TRAINING_CONFIG, DATA_PATHS
 
 def train_model():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

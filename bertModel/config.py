@@ -9,7 +9,7 @@ DATA_PATHS = {
 }
 
 MODEL_PATHS = {
-    'pretrained': 'models/pretrained/',
+    'pretrained': 'DeepPavlov/rubert-base-cased',
     'trained': 'models/trained/spelling_correction_model/'
 }
 
