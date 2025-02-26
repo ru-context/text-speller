@@ -7,6 +7,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import DataLoader, TensorDataset
 import logging
+import os
 import numpy as np
 from tqdm import tqdm
 
@@ -51,9 +52,21 @@ def train_on_part(part_data, model, vectorizer, label_encoder, device):
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Используемое устройство: {device}")
-    config = joblib.load("config.pkl")
-    data = pd.read_csv('../datasets/error_dataset.csv')
+    if not os.path.exists("config.pkl"):
+        logging.info("Файл config.pkl не найден. Создаем новый конфиг.")
+        config = {
+            "input_size": None,
+            "output_size": None,
+            "hidden_size": Config.hidden_size,
+            "model_path": Config.model_path,
+            "vectorizer_path": Config.vectorizer_path,
+            "label_encoder_path": Config.label_encoder_path
+        }
+    else:
+        logging.info("Загружаем существующий config.pkl.")
+        config = joblib.load("config.pkl")
 
+    data = pd.read_csv('../datasets/error_dataset.csv')
     num_parts = 5
     parts = split_dataset(data, num_parts)
 
@@ -61,13 +74,16 @@ def main():
     vectorizer.fit(data['Erroneous'])
     label_encoder = LabelEncoder()
     label_encoder.fit(data['Correct'])
+
     model = SpellCorrectionModel(
         input_size=vectorizer.transform(["dummy"]).shape[1],
         hidden_size=Config.hidden_size,
         output_size=len(label_encoder.classes_)
     ).to(device)
 
-    # Обучение по частям
+    config["input_size"] = vectorizer.transform(["dummy"]).shape[1]
+    config["output_size"] = len(label_encoder.classes_)
+    joblib.dump(config, "config.pkl")
     for part_num, part_data in enumerate(parts, 1):
         logging.info(f"Обучение на части {part_num}...")
         train_on_part(part_data, model, vectorizer, label_encoder, device)
