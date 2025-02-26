@@ -38,10 +38,8 @@ config = {
     "vectorizer_path": Config.vectorizer_path,
     "label_encoder_path": Config.label_encoder_path
 }
-
 joblib.dump(config, "config.pkl")
 
-# Вычисление весов классов
 class_weights = defaultdict(float)
 for correct_word, weight in zip(y, weights):
     class_weights[correct_word] += weight
