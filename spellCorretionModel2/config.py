@@ -7,7 +7,7 @@ class Config:
     # Гиперпараметры обучения
     learning_rate = 0.001
     num_epochs = 10
-    batch_size = 256
+    batch_size = 512
 
     # Пути для сохранения и загрузки
     model_path = '../locmodels/spellCorrectionMdls2/spell_correction_model.pth'
